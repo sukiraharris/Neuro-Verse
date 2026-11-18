@@ -259,7 +259,7 @@ function buildFlow(id){
   // particles
   const per=24,N=curves.length*per;
   const pos=new Float32Array(N*3),colr=new Float32Array(N*3);const meta=[];
-  for(let c=0;c<curves.length;c++)for(let k=0;k<per;k++){meta.push({c,o:Math.random(),sp:0.12+Math.random()*0.1,j:V((Math.random()-.5),(Math.random()-.5),(Math.random()-.5)).multiplyScalar(0.022)})}
+  for(let c=0;c<curves.length;c++)for(let k=0;k<per;k++){meta.push({c,k:Math.random(),o:Math.random(),sp:0.12+Math.random()*0.1,j:V((Math.random()-.5),(Math.random()-.5),(Math.random()-.5)).multiplyScalar(0.022)})}
   const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(pos,3));g.setAttribute('color',new THREE.BufferAttribute(colr,3));
   const pm=new THREE.PointsMaterial({size:0.075,map:glowTex,vertexColors:true,transparent:true,depthWrite:false,depthTest:false,blending:THREE.AdditiveBlending,sizeAttenuation:true});
   const pts=new THREE.Points(g,pm);pts.renderOrder=30;pts.frustumCulled=false;group.add(pts);
@@ -267,25 +267,29 @@ function buildFlow(id){
   const srcs=[];const seen=new Set();
   paths.forEach(p=>{const k=p[0].toArray().map(v=>v.toFixed(2)).join();if(seen.has(k))return;seen.add(k);
     const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex,color:col,transparent:true,depthWrite:false,depthTest:false,blending:THREE.AdditiveBlending}));sp.position.copy(p[0]);sp.renderOrder=31;group.add(sp);srcs.push(sp)});
-  flows[id]={group,samples,meta,pos,colr,g,col,srcs,on:false};
+  flows[id]={group,samples,meta,pos,colr,g,col,srcs,pm,on:false,mul:1,time:Math.random()*10};
 }
 Object.keys(CHEMS).forEach(buildFlow);
 
-function updateFlows(t){
+function updateFlows(t,dt){
   for(const id in flows){const f=flows[id];if(!f.on)continue;
-    const {samples,meta,pos,colr,col}=f;
-    for(let i=0;i<meta.length;i++){const m=meta[i];const u=(m.o+t*m.sp)%1;const s=samples[m.c];const fi=u*(s.length-1),i0=Math.floor(fi),fr=fi-i0;const a=s[i0],b=s[Math.min(i0+1,s.length-1)];
+    const mul=f.mul==null?1:f.mul;
+    f.time+=dt*Math.min(1.7,Math.max(0.45,0.55+0.45*mul));
+    const vis=Math.min(1,mul),bright=mul>=1?Math.min(1.7,0.8+0.4*mul):0.6+0.4*mul;
+    f.pm.size=0.075*Math.min(1.4,Math.max(0.8,0.85+0.3*(mul-1)));
+    const {samples,meta,pos,colr,col}=f,T=f.time;
+    for(let i=0;i<meta.length;i++){const m=meta[i];const u=(m.o+T*m.sp)%1;const s=samples[m.c];const fi=u*(s.length-1),i0=Math.floor(fi),fr=fi-i0;const a=s[i0],b=s[Math.min(i0+1,s.length-1)];
       const env=Math.sin(Math.PI*u);
       pos[i*3]=a.x+(b.x-a.x)*fr+m.j.x*env;pos[i*3+1]=a.y+(b.y-a.y)*fr+m.j.y*env;pos[i*3+2]=a.z+(b.z-a.z)*fr+m.j.z*env;
-      const br=Math.min(1,0.25+env*1.1);colr[i*3]=col.r*br;colr[i*3+1]=col.g*br;colr[i*3+2]=col.b*br}
+      const br=m.k>vis?0:Math.min(1.6,(0.25+env*1.1)*bright);colr[i*3]=col.r*br;colr[i*3+1]=col.g*br;colr[i*3+2]=col.b*br}
     f.g.attributes.position.needsUpdate=true;f.g.attributes.color.needsUpdate=true;
-    f.srcs.forEach((sp,k)=>{const sc=0.13+0.04*Math.sin(t*3+k);sp.scale.set(sc,sc,sc)})}
+    f.srcs.forEach((sp,k)=>{const sc=(0.13+0.04*Math.sin(t*3+k))*Math.min(1.4,Math.max(.7,mul));sp.scale.set(sc,sc,sc)})}
 }
 
 /* =====================================================================
    STATE / PAINT
    ===================================================================== */
-const state={sel:null,selChem:null,hover:null,atlas:true,labels:true,opacity:1,spin:false};
+const state={sel:null,selChem:null,hover:null,atlas:true,labels:true,opacity:1,spin:false,fx:null};
 const TISSUE=new THREE.Color('#d9b6a9');
 const outerIds=new Set(['midbrain','pons','medulla','spinal','cerebellum']);
 const regCol={};for(const id in REGIONS)regCol[id]=new THREE.Color(REGIONS[id].color);
@@ -297,6 +301,7 @@ function paintCortex(){
       if(state.atlas) tc.copy(TISSUE).lerp(regCol[r],0.78); else tc.copy(TISSUE);
       if(anySel){ if(r===state.sel) tc.copy(regCol[r]).lerp(WHITE,0.12); else tc.multiplyScalar(0.55);}
       if(r===state.hover && r!==state.sel) tc.lerp(WHITE,0.3);
+      const fx=state.fx&&state.fx[r];if(fx) tc.lerp(fx.col,Math.min(.85,.35+.5*fx.s)); else if(state.fx) tc.multiplyScalar(0.8);
       const shade=0.58+0.42*(1-ao[i]);
       arr[i*3]=tc.r*shade;arr[i*3+1]=tc.g*shade;arr[i*3+2]=tc.b*shade}
     h.geometry.attributes.color.needsUpdate=true}
@@ -306,9 +311,11 @@ function paintDeep(){
   const chemSrc=new Set();for(const id in flows)if(flows[id].on)CHEMS[id].src.forEach(s=>chemSrc.add(s));
   const anyFlow=Object.values(flows).some(f=>f.on);
   for(const id in regionMeshes){if(hemis[0].userData.cent[id])continue;
-    const dim=!outerIds.has(id)&&id!==state.sel&&id!==state.hover&&(deepSel||(anyFlow&&!chemSrc.has(id)));
-    regionMeshes[id].forEach(m=>{let e=0.08;if(id===state.hover)e=0.35;if(id===state.sel)e=0.7;if(chemSrc.has(id))e=Math.max(e,0.5);m.material.emissiveIntensity=e;
-      if(!outerIds.has(id)){const tr=dim;if(m.material.transparent!==tr){m.material.transparent=tr;m.material.needsUpdate=true}m.material.opacity=dim?(deepSel?0.22:0.4):1;m.material.depthWrite=!dim}})}
+    const fx=state.fx&&state.fx[id];
+    const dim=!outerIds.has(id)&&!fx&&id!==state.sel&&id!==state.hover&&(deepSel||(anyFlow&&!chemSrc.has(id))||!!state.fx);
+    regionMeshes[id].forEach(m=>{let e=0.08;if(id===state.hover)e=0.35;if(id===state.sel)e=0.7;if(chemSrc.has(id))e=Math.max(e,0.5);
+      m.material.emissive.copy(fx?fx.col:regCol[id]);m.material.emissiveIntensity=fx?0.6:e;
+      if(!outerIds.has(id)){const tr=dim;if(m.material.transparent!==tr){m.material.transparent=tr;m.material.needsUpdate=true}m.material.opacity=dim?(deepSel?0.22:0.35):1;m.material.depthWrite=!dim}})}
 }
 function applyOpacity(){
   const o=state.opacity;
@@ -463,14 +470,15 @@ for(const id in REGIONS){const d=document.createElement('div');d.className='lab'
 const SURFACE_DEEP=new Set(['cerebellum','midbrain','pons','medulla','spinal','pituitary','olfactory']);
 const pv=V(0,0,0),camDir=V(0,0,0);
 function focusSet(){const fs=new Set();let any=false;for(const id in flows)if(flows[id].on){any=true;CHEMS[id].src.forEach(x=>fs.add(x));CHEMS[id].reach.forEach(x=>fs.add(x))}
-  if(state.sel&&!hemis[0].userData.cent[state.sel]&&!outerIds.has(state.sel)){any=true;fs.add(state.sel)}return any?fs:null}
+  if(state.sel&&!hemis[0].userData.cent[state.sel]&&!outerIds.has(state.sel)){any=true;fs.add(state.sel)}
+  if(state.fx){any=true;for(const k in state.fx)fs.add(k)}return any?fs:null}
 function updateLabels(){
   const W=canvas.clientWidth,H=canvas.clientHeight;const fs=focusSet();
   for(const id in REGIONS){const d=labelDivs[id];
     let show=state.labels||id===state.sel;
     const isCortex=!!hemis[0].userData.cent[id];
     if(show){
-      if(isCortex) show=state.opacity>0.35&&!REGIONS[id].deep;
+      if(isCortex) show=(state.opacity>0.35||(state.fx&&state.fx[id]))&&(!REGIONS[id].deep||(state.fx&&state.fx[id]));
       else if(!SURFACE_DEEP.has(id)) show=state.opacity<0.6;
     }
     const an=ANCH[id];if(!show||!an||!an.length){d.style.opacity=0;d.style.visibility='hidden';continue}
@@ -497,11 +505,12 @@ setTimeout(hideHint,9000);
 paintCortex();paintDeep();applyOpacity();refreshAnchors();buildList();
 if(innerWidth<820){camera.position.multiplyScalar(1.25)}
 const clock=new THREE.Clock();
+function pulseFx(t){if(!state.fx)return;for(const id in state.fx){if(hemis[0].userData.cent[id]||!regionMeshes[id])continue;const f=state.fx[id];const e=0.2+0.75*f.s*(0.6+0.4*Math.sin(t*3.2+id.length));regionMeshes[id].forEach(m=>m.material.emissiveIntensity=e)}}
 function loop(){
-  const t=clock.getElapsedTime();
+  const dt=Math.min(.05,clock.getDelta()),t=clock.elapsedTime;
   if(flyTo){controls.target.lerp(flyTo.t,0.08);camera.position.lerp(flyTo.p,0.08);if(camera.position.distanceTo(flyTo.p)<0.01)flyTo=null}
-  const wantOff=innerWidth<820?0:(info.classList.contains('open')?150:-50);if(Math.abs(wantOff-viewOff)>0.5){viewOff+=(wantOff-viewOff)*0.1;applyView()}
-  controls.update();updateFlows(t);updateLabels();
+  const wantOff=innerWidth<820?0:(document.body.classList.contains('gameOn')?175:info.classList.contains('open')?150:-50);if(Math.abs(wantOff-viewOff)>0.5){viewOff+=(wantOff-viewOff)*0.1;applyView()}
+  controls.update();updateFlows(t,dt);pulseFx(t);updateLabels();
   renderer.render(scene,camera);requestAnimationFrame(loop);
 }
 loop();

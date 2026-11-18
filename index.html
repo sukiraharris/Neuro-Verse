@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Neuro-Verse — interactive 3D brain</title><link rel="preconnect" href="https://fonts.googleapis.com">
+<title>Neuro-Verse — interactive 3D brain</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="css/style.css">
@@ -11,7 +12,7 @@
 <body>
 <canvas id="c"></canvas>
 <div id="labels"></div>
-<div class="brand"><h1>Neuro-<em>Verse</em></h1><span>Interactive 3D brain</span></div>
+<div class="brand"><h1>Neuro-<em>Verse</em></h1><span>Interactive 3D brain</span><button id="playBtn"><i>▶</i> Psych Clinic</button></div>
 <button id="listToggle">Structures</button>
 <div id="orient">Left hemisphere view · front →</div>
 
@@ -21,6 +22,7 @@
 </aside>
 
 <aside id="info" class="panel"></aside>
+<aside id="game" class="panel"></aside>
 
 <div id="dock" class="panel">
   <div class="row" id="chemRow"><span class="lbl">Chemical flows</span></div>
@@ -45,5 +47,7 @@
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 <script src="js/data.js"></script>
 <script src="js/main.js"></script>
+<script src="js/game-data.js"></script>
+<script src="js/game.js"></script>
 </body>
 </html>
