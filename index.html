@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Neuroatlas — interactive 3D brain</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="labels"></div>
+<div class="brand"><h1>Neuro<em>atlas</em></h1><span>Interactive 3D brain</span></div>
+<button id="listToggle">Structures</button>
+<div id="orient">Left hemisphere view · front →</div>
+
+<aside id="list" class="panel">
+  <div class="search"><input id="q" type="text" placeholder="Search structures…" autocomplete="off"></div>
+  <div class="scroll" id="listScroll"></div>
+</aside>
+
+<aside id="info" class="panel"></aside>
+
+<div id="dock" class="panel">
+  <div class="row" id="chemRow"><span class="lbl">Chemical flows</span></div>
+  <div class="row">
+    <button class="tbtn on" id="bLabels">Labels</button>
+    <button class="tbtn on" id="bAtlas">Region colours</button>
+    <span class="sep"></span>
+    <label class="slider">Cortex <input type="range" id="op" min="0" max="100" value="100"></label>
+    <button class="tbtn" id="bXray">X-ray</button>
+    <span class="sep"></span>
+    <button class="tbtn on" id="bL">Left</button>
+    <button class="tbtn on" id="bR">Right</button>
+    <span class="sep"></span>
+    <button class="tbtn" id="bSpin">Spin</button>
+    <button class="tbtn" id="bReset">Reset</button>
+  </div>
+</div>
+<div id="hint">Drag to rotate · scroll or pinch to zoom · click any region</div>
+<div id="tip"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="js/data.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
